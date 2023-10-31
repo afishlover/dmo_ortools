@@ -1,0 +1,16 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ManPower", "ManPower\ManPower.csproj", "{6ED8C17C-096A-4567-BDD3-A52DA8330229}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{6ED8C17C-096A-4567-BDD3-A52DA8330229}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{6ED8C17C-096A-4567-BDD3-A52DA8330229}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{6ED8C17C-096A-4567-BDD3-A52DA8330229}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{6ED8C17C-096A-4567-BDD3-A52DA8330229}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+EndGlobal
