@@ -12,10 +12,14 @@ public class Problem
 
     // Unknowns
     private readonly Dictionary<(int, int, int), BoolVar> _assignWorker; // assign a specific worker to a stage
-    private readonly Dictionary<(int, int, int), BoolVar> _assignEquipment; // assign a specific equipment to a line
+    private readonly Dictionary<(int, int), BoolVar> _assignEquipment; // assign a specific equipment to a line
 
     // Objectives
     private List<LinearExpr> _totalDiversity;
+    private List<LinearExpr> _totalGaps;
+    private List<LinearExpr> _totalSalary;
+    private List<LinearExpr> _totalChance;
+    private List<LinearExpr> _totalProductivity;
 
     #endregion
 
@@ -60,14 +64,12 @@ public class Problem
         }
 
         // 2. Determine in a line/shift/ which equipment stay
-        for (int sh = 0; sh < _data.NumOfShifts; sh++)
+
+        for (int ln = 0; ln < _data.NumOfLines; ln++)
         {
-            for (int ln = 0; ln < _data.NumOfLines; ln++)
+            for (int eq = 0; eq < _data.NumOfEquipments; eq++)
             {
-                for (int eq = 0; eq < _data.NumOfEquipments; eq++)
-                {
-                    _assignEquipment[(sh, ln, eq)] = _cpModel.NewBoolVar($"E[{sh}|{ln}|{eq}]");
-                }
+                _assignEquipment[(ln, eq)] = _cpModel.NewBoolVar($"E[{ln}|{eq}]");
             }
         }
     }
@@ -216,18 +218,14 @@ public class Problem
             }
         }
 
-        // 5. Equipment can only stay at most one shift in every line
-        for (int eq = 0; eq < _data.NumOfEquipments; eq++)
+        // 5. Equipment can only stay at one line
+        for (int ln = 0; ln < _data.NumOfLines - 1; ln++)
         {
-            for (int sh = 0; sh < _data.NumOfShifts; sh++)
+            for (int oln = ln + 1; oln < _data.NumOfLines; oln++)
             {
-                for (int ln = 0; ln < _data.NumOfLines - 1; ln++)
+                for (int eq = 0; eq < _data.NumOfEquipments; eq++)
                 {
-                    for (int oln = ln + 1; oln < _data.NumOfLines; oln++)
-                    {
-                        _cpModel.AddAtMostOne(new[]
-                            { _assignEquipment[(sh, ln, eq)], _assignEquipment[(sh, oln, eq)] });
-                    }
+                    _cpModel.AddAtMostOne(new[] { _assignEquipment[(ln, eq)], _assignEquipment[(oln, eq)] });
                 }
             }
         }
@@ -243,7 +241,7 @@ public class Problem
                     var coefficients = new List<int>();
                     for (int eq = 0; eq < _data.NumOfEquipments; eq++)
                     {
-                        literals.Add(_assignEquipment[(sh, ln, eq)]);
+                        literals.Add(_assignEquipment[(ln, eq)]);
                         coefficients.Add(_data.EquipmentFunction[eq][fu]);
                     }
 
@@ -262,6 +260,35 @@ public class Problem
     public void ObjectiveDefinition()
     {
         // 1. Minimize the productivity gaps between members in same line/shift
+        for (int sh = 0; sh < _data.NumOfShifts; sh++)
+        {
+            for (int ln = 0; ln < _data.NumOfLines; ln++)
+            {
+                for (int st = 0; st < _data.NumOfStages; st++)
+                {
+                    if (_data.LineStage[ln][st] > 0)
+                    {
+                        for (int w = 0; w < _data.NumOfWorkers - 1; w++)
+                        {
+                            if (_data.WorkerStageAllowance[st][w] > 0 && _data.WorkerShift[w][sh] > 0)
+                            {
+                                for (int ow = w + 1; ow < _data.NumOfWorkers; ow++)
+                                {
+                                    if (_data.WorkerStageAllowance[st][ow] > 0 && _data.WorkerShift[ow][sh] > 0)
+                                    {
+                                        var tmp = _cpModel.NewIntVar(0, int.MaxValue, $"tmp[{sh}|{ln}|{st}|{w}|{ow}]");
+                                        _cpModel.AddAbsEquality(tmp,
+                                            _assignWorker[(sh, st, w)] * _data.WorkerStageProductivityScore[st][w] -
+                                            _assignWorker[(sh, st, ow)] * _data.WorkerStageProductivityScore[st][ow]);
+                                        _totalGaps.Add(tmp);
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
 
         // 2. Minimize the chance of team shuffle
         for (int w = 0; w < _data.NumOfWorkers; w++)
@@ -283,23 +310,28 @@ public class Problem
 
         // 3. Maximize the productivity of a line
 
-        // 4. Minimize the distance when transporting worker
-        
-        // 5. Minimize the money used to hire worker
-        
-        // 6. Maximize the chance of being assigned for new worker
-        
+        // 4. Minimize the money used to hire worker
+
+        // 5. Maximize the chance of being assigned for new worker
+
+
         // Casting LinearExpr
         var totalDiversity = _cpModel.NewIntVar(0, int.MaxValue, "TotalDiversity");
         _cpModel.Add(LinearExpr.Sum(_totalDiversity) == totalDiversity);
-        
+
+        var totalGaps = _cpModel.NewIntVar(0, int.MaxValue, "TotalGaps");
+        _cpModel.Add(LinearExpr.Sum(_totalGaps) == totalGaps);
+
         // Weighted Sum
-        _cpModel.Minimize(totalDiversity);
+        _cpModel.Minimize(totalDiversity + totalGaps);
     }
 
     public void GetJSONResult()
     {
-        throw new NotImplementedException();
+        var result = new
+        {
+            NumOfLines = 0
+        };
     }
 
     public void Solve()
@@ -322,16 +354,14 @@ public class Problem
             //     }
             // }
 
-            for (int sh = 0; sh < _data.NumOfShifts; sh++)
+
+            for (int ln = 0; ln < _data.NumOfLines; ln++)
             {
-                for (int ln = 0; ln < _data.NumOfLines; ln++)
+                for (int eq = 0; eq < _data.NumOfEquipments; eq++)
                 {
-                    for (int eq = 0; eq < _data.NumOfEquipments; eq++)
+                    if (_cpSolver.Value(_assignEquipment[(ln, eq)]) == 1L)
                     {
-                        if (_cpSolver.Value(_assignEquipment[(sh, ln, eq)]) == 1L)
-                        {
-                            Console.WriteLine($"Equipment {eq} is assigned to line {ln} at shift {sh}");
-                        }
+                        Console.WriteLine($"Equipment {eq} is assigned to line {ln}");
                     }
                 }
             }
