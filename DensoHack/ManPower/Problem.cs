@@ -28,6 +28,7 @@ public class Problem
         _assignWorker = new();
         _assignEquipment = new();
         _totalDiversity = new List<LinearExpr>();
+        _totalGaps = new List<LinearExpr>();
         _cpSolver = new CpSolver();
         _cpModel = new CpModel();
         _data = data;
@@ -260,27 +261,31 @@ public class Problem
     public void ObjectiveDefinition()
     {
         // 1. Minimize the productivity gaps between members in same line/shift
-        for (int sh = 0; sh < _data.NumOfShifts; sh++)
+        if (_data.Weights[0] > 0)
         {
-            for (int ln = 0; ln < _data.NumOfLines; ln++)
+            for (int sh = 0; sh < _data.NumOfShifts; sh++)
             {
-                for (int st = 0; st < _data.NumOfStages; st++)
+                for (int ln = 0; ln < _data.NumOfLines; ln++)
                 {
-                    if (_data.LineStage[ln][st] > 0)
+                    for (int st = 0; st < _data.NumOfStages; st++)
                     {
-                        for (int w = 0; w < _data.NumOfWorkers - 1; w++)
+                        if (_data.LineStage[ln][st] > 0)
                         {
-                            if (_data.WorkerStageAllowance[st][w] > 0 && _data.WorkerShift[w][sh] > 0)
+                            for (int w = 0; w < _data.NumOfWorkers - 1; w++)
                             {
-                                for (int ow = w + 1; ow < _data.NumOfWorkers; ow++)
+                                if (_data.WorkerStageAllowance[st][w] > 0 && _data.WorkerShift[w][sh] > 0)
                                 {
-                                    if (_data.WorkerStageAllowance[st][ow] > 0 && _data.WorkerShift[ow][sh] > 0)
+                                    for (int ow = w + 1; ow < _data.NumOfWorkers; ow++)
                                     {
-                                        var tmp = _cpModel.NewIntVar(0, int.MaxValue, $"tmp[{sh}|{ln}|{st}|{w}|{ow}]");
-                                        _cpModel.AddAbsEquality(tmp,
-                                            _assignWorker[(sh, st, w)] * _data.WorkerStageProductivityScore[st][w] -
-                                            _assignWorker[(sh, st, ow)] * _data.WorkerStageProductivityScore[st][ow]);
-                                        _totalGaps.Add(tmp);
+                                        if (_data.WorkerStageAllowance[st][ow] > 0 && _data.WorkerShift[ow][sh] > 0)
+                                        {
+                                            var tmp = _cpModel.NewIntVar(0, 100, $"tmp[{sh}|{ln}|{st}|{w}|{ow}]");
+                                            _cpModel.Add(tmp == _data.WorkerStageProductivityScore[st][w] -
+                                                _data.WorkerStageProductivityScore[st][ow]).OnlyEnforceIf(
+                                                new ILiteral[]
+                                                    { _assignWorker[(sh, st, w)], _assignWorker[(sh, st, ow)] });
+                                            _totalGaps.Add(tmp);
+                                        }
                                     }
                                 }
                             }
@@ -291,21 +296,24 @@ public class Problem
         }
 
         // 2. Minimize the chance of team shuffle
-        for (int w = 0; w < _data.NumOfWorkers; w++)
+        if (_data.Weights[1] > 0)
         {
-            var literals = new List<ILiteral>();
-            for (int sh = 0; sh < _data.NumOfShifts; sh++)
+            for (int w = 0; w < _data.NumOfWorkers; w++)
             {
-                for (int st = 0; st < _data.NumOfStages; st++)
+                var literals = new List<ILiteral>();
+                for (int sh = 0; sh < _data.NumOfShifts; sh++)
                 {
-                    if (_data.WorkerStageAllowance[st][w] > 0 && _data.WorkerShift[w][sh] > 0)
+                    for (int st = 0; st < _data.NumOfStages; st++)
                     {
-                        literals.Add(_assignWorker[(sh, st, w)]);
+                        if (_data.WorkerStageAllowance[st][w] > 0 && _data.WorkerShift[w][sh] > 0)
+                        {
+                            literals.Add(_assignWorker[(sh, st, w)]);
+                        }
                     }
                 }
-            }
 
-            _totalDiversity.Add(LinearExpr.Sum(literals));
+                _totalDiversity.Add(LinearExpr.Sum(literals));
+            }
         }
 
         // 3. Maximize the productivity of a line
@@ -323,7 +331,7 @@ public class Problem
         _cpModel.Add(LinearExpr.Sum(_totalGaps) == totalGaps);
 
         // Weighted Sum
-        _cpModel.Minimize(totalDiversity + totalGaps);
+        _cpModel.Minimize(totalGaps);
     }
 
     public void GetJSONResult()

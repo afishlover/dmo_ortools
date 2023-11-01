@@ -6,6 +6,7 @@ namespace ManPower;
 
 public sealed class Data
 {
+    public int[] Weights = new[] { 10, -20, 10, 10, 5 };
     public int NumOfLines { get; set; }
     public int NumOfStages { get; set; }
     public int NumOfWorkers { get; set; }
@@ -13,6 +14,7 @@ public sealed class Data
     public int NumOfFunctions { get; set; }
     public int NumOfShifts { get; set; }
 
+    public int[][] LineShift { get; set; } // Determine if a line work in this shift
     public int[][] LineStage { get; set; } // Determine if a line has this stage
     public int[][] WorkerStageAllowance { get; set; } // Determine if a worker can do this stage
     public int[][] WorkerLineAllowance { get; set; } // Determine if a worker can do this line
@@ -22,8 +24,11 @@ public sealed class Data
     public int[] WorkerAge { get; set; } // Determine worker age
     public int[] WorkerHealth { get; set; } // Determine worker health
     public int[] WorkerSalary { get; set; } // Determine worker shift salary
-    public int[] EquipmentProductivityScore { get; set; }
-    public int[][] WorkerStageProductivityScore { get; set; }
+    public int[] EquipmentProductivityScore { get; set; } // Determine productivity score of an equipment
+
+    public int[][]
+        WorkerStageProductivityScore { get; set; } // Determine worker productivity with regard to every stage
+
     public int[][] LineFunctionRequirement { get; set; } // Determine what functions a stage need
     public int[][] EquipmentFunction { get; set; } // Determine what functions an equipment has
 
@@ -32,6 +37,7 @@ public sealed class Data
     private readonly DataTable _input = ExcelDataContext.GetInstance().Sheets["InputData"]!;
     private readonly DataTable _lineStage = ExcelDataContext.GetInstance().Sheets["LineStage"]!;
     private readonly DataTable _workerStageAllowance = ExcelDataContext.GetInstance().Sheets["WorkerStageAllowance"]!;
+    private readonly DataTable _workerProfile = ExcelDataContext.GetInstance().Sheets["WorkerProfile"]!;
     private readonly DataTable _workerStageExperience = ExcelDataContext.GetInstance().Sheets["WorkerStageExperience"]!;
     private readonly DataTable _workerShift = ExcelDataContext.GetInstance().Sheets["WorkerShift"]!;
     private readonly DataTable _workerPreassigned = ExcelDataContext.GetInstance().Sheets["WorkerPreassigned"]!;
@@ -44,7 +50,6 @@ public sealed class Data
         ExcelDataContext.GetInstance().Sheets["LineFunctionRequirement"]!;
 
     #endregion
-
 
     public void Populate()
     {
@@ -66,7 +71,7 @@ public sealed class Data
 
             LineStage[ln] = tmp;
         }
-
+        
         WorkerStageAllowance = new int[NumOfStages][];
         for (int st = 0; st < NumOfStages; st++)
         {
@@ -127,10 +132,31 @@ public sealed class Data
             LineFunctionRequirement[ln] = tmp;
         }
 
+        WorkerStageExperience = new int[NumOfStages][];
+        for (int st = 0; st < NumOfStages; st++)
+        {
+            var tmp = new int[NumOfWorkers];
+            for (int w = 0; w < NumOfWorkers; w++)
+            {
+                tmp[w] = Convert.ToInt32(_workerStageExperience.Rows[st + 1][w + 1]);
+            }
+            WorkerStageExperience[st] = tmp;
+        }
+
         EquipmentProductivityScore = new int[NumOfEquipments];
         for (int eq = 0; eq < NumOfEquipments; eq++)
         {
             EquipmentProductivityScore[eq] = Convert.ToInt32(_equipmentProductivityScore.Rows[eq + 1][1]);
+        }
+
+        WorkerSalary = new int[NumOfWorkers];
+        WorkerHealth = new int[NumOfWorkers];
+        WorkerAge = new int[NumOfWorkers];
+        for (int w = 0; w < NumOfWorkers; w++)
+        {
+            WorkerSalary[w] = Convert.ToInt32(_workerProfile.Rows[w + 1][2]);
+            WorkerHealth[w] = Convert.ToInt32(_workerProfile.Rows[w + 1][3]);
+            WorkerAge[w] = Convert.ToInt32(_workerProfile.Rows[w + 1][1]);
         }
 
         CalculateProductivity();

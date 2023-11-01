@@ -9,5 +9,5 @@ Problem p = new Problem(d);
 p.Setup();
 p.VariableDefinition();
 p.ConstraintDefinition();
-// p.ObjectiveDefinition();
+p.ObjectiveDefinition();
 p.Solve();
