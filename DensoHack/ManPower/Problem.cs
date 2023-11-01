@@ -216,9 +216,7 @@ public class Problem
             }
         }
 
-        // 5. Each line need exactly a number of team lead
-
-        // 6. Equipment can only stay at most one shift in every line
+        // 5. Equipment can only stay at most one shift in every line
         for (int eq = 0; eq < _data.NumOfEquipments; eq++)
         {
             for (int sh = 0; sh < _data.NumOfShifts; sh++)
@@ -234,7 +232,7 @@ public class Problem
             }
         }
 
-        // 7. Total equipment assigned to a line must fulfill its requirements
+        // 6. Total equipment assigned to a line must fulfill its requirements
         for (int sh = 0; sh < _data.NumOfShifts; sh++)
         {
             for (int ln = 0; ln < _data.NumOfLines; ln++)
@@ -249,13 +247,16 @@ public class Problem
                         coefficients.Add(_data.EquipmentFunction[eq][fu]);
                     }
 
-                    _cpModel.Add(
-                        LinearExpr.WeightedSum(literals, coefficients) >= _data.LineFunctionRequirement[ln][fu]);
+                    if (_data.LineFunctionRequirement[ln][fu] > 0)
+                    {
+                        _cpModel.Add(
+                            LinearExpr.WeightedSum(literals, coefficients) >= _data.LineFunctionRequirement[ln][fu]);
+                    }
                 }
             }
         }
 
-        // 8. Productivity of every line must greater equal than the minimum requirement
+        // 7. Productivity of every line must greater equal than the minimum requirement
     }
 
     public void ObjectiveDefinition()
@@ -282,16 +283,23 @@ public class Problem
 
         // 3. Maximize the productivity of a line
 
+        // 4. Minimize the distance when transporting worker
+        
+        // 5. Minimize the money used to hire worker
+        
+        // 6. Maximize the chance of being assigned for new worker
+        
         // Casting LinearExpr
         var totalDiversity = _cpModel.NewIntVar(0, int.MaxValue, "TotalDiversity");
         _cpModel.Add(LinearExpr.Sum(_totalDiversity) == totalDiversity);
-
+        
         // Weighted Sum
         _cpModel.Minimize(totalDiversity);
     }
 
     public void GetJSONResult()
     {
+        throw new NotImplementedException();
     }
 
     public void Solve()
@@ -299,16 +307,30 @@ public class Problem
         var status = _cpSolver.Solve(_cpModel);
         if (status is CpSolverStatus.Feasible or CpSolverStatus.Optimal)
         {
+            // for (int sh = 0; sh < _data.NumOfShifts; sh++)
+            // {
+            //     for (int st = 0; st < _data.NumOfStages; st++)
+            //     {
+            //         for (int w = 0; w < _data.NumOfWorkers; w++)
+            //         {
+            //             if (_data.WorkerStageAllowance[st][w] > 0 && _data.WorkerShift[w][sh] > 0 &&
+            //                 _cpSolver.Value(_assignWorker[(sh, st, w)]) == 1L)
+            //             {
+            //                 Console.WriteLine($"Worker {w} is assigned to stage {st} at shift {sh}");
+            //             }
+            //         }
+            //     }
+            // }
+
             for (int sh = 0; sh < _data.NumOfShifts; sh++)
             {
-                for (int st = 0; st < _data.NumOfStages; st++)
+                for (int ln = 0; ln < _data.NumOfLines; ln++)
                 {
-                    for (int w = 0; w < _data.NumOfWorkers; w++)
+                    for (int eq = 0; eq < _data.NumOfEquipments; eq++)
                     {
-                        if (_data.WorkerStageAllowance[st][w] > 0 && _data.WorkerShift[w][sh] > 0 &&
-                            _cpSolver.Value(_assignWorker[(sh, st, w)]) == 1L)
+                        if (_cpSolver.Value(_assignEquipment[(sh, ln, eq)]) == 1L)
                         {
-                            Console.WriteLine($"Worker {w} is assigned to stage {st} at shift {sh}");
+                            Console.WriteLine($"Equipment {eq} is assigned to line {ln} at shift {sh}");
                         }
                     }
                 }
