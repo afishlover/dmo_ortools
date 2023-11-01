@@ -66,10 +66,7 @@ public class Problem
             {
                 for (int eq = 0; eq < _data.NumOfEquipments; eq++)
                 {
-                    if (_data.EquipmentLineSuitable[ln][eq] > 0)
-                    {
-                        _assignEquipment[(sh, ln, eq)] = _cpModel.NewBoolVar($"E[{sh}|{ln}|{eq}]");
-                    }
+                    _assignEquipment[(sh, ln, eq)] = _cpModel.NewBoolVar($"E[{sh}|{ln}|{eq}]");
                 }
             }
         }
@@ -221,7 +218,6 @@ public class Problem
 
         // 5. Each line need exactly a number of team lead
 
-
         // 6. Equipment can only stay at most one shift in every line
         for (int eq = 0; eq < _data.NumOfEquipments; eq++)
         {
@@ -231,16 +227,35 @@ public class Problem
                 {
                     for (int oln = ln + 1; oln < _data.NumOfLines; oln++)
                     {
-                        if (_data.EquipmentLineSuitable[ln][eq] > 0)
-                        {
-                            _cpModel.AddAtMostOne(new[] { _assignEquipment[(sh, ln, eq)], _assignEquipment[(sh, oln, eq)]});
-                        }
-                    }   
+                        _cpModel.AddAtMostOne(new[]
+                            { _assignEquipment[(sh, ln, eq)], _assignEquipment[(sh, oln, eq)] });
+                    }
                 }
             }
         }
 
-        // 7. Productivity of every line must greater equal than the minimum requirement
+        // 7. Total equipment assigned to a line must fulfill its requirements
+        for (int sh = 0; sh < _data.NumOfShifts; sh++)
+        {
+            for (int ln = 0; ln < _data.NumOfLines; ln++)
+            {
+                for (int fu = 0; fu < _data.NumOfFunctions; fu++)
+                {
+                    var literals = new List<BoolVar>();
+                    var coefficients = new List<int>();
+                    for (int eq = 0; eq < _data.NumOfEquipments; eq++)
+                    {
+                        literals.Add(_assignEquipment[(sh, ln, eq)]);
+                        coefficients.Add(_data.EquipmentFunction[eq][fu]);
+                    }
+
+                    _cpModel.Add(
+                        LinearExpr.WeightedSum(literals, coefficients) >= _data.LineFunctionRequirement[ln][fu]);
+                }
+            }
+        }
+
+        // 8. Productivity of every line must greater equal than the minimum requirement
     }
 
     public void ObjectiveDefinition()

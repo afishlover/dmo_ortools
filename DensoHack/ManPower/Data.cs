@@ -4,7 +4,7 @@ using ExcelDataReader;
 
 namespace ManPower;
 
-public class Data
+public sealed class Data
 {
     public int NumOfLines { get; set; } = 5;
     public int NumOfStages { get; set; } = 3;
@@ -14,7 +14,6 @@ public class Data
     public int NumOfShifts { get; set; }
 
     public int[][] LineStage { get; set; } // Determine if a line has this stage
-    public int[][] EquipmentLineSuitable { get; set; } // Determine if an equipment has a function that a line need
     public int[][] WorkerStageAllowance { get; set; } // Determine if a worker can do this stage
     public int[][] WorkerShift { get; set; } // Determine if a worker can work at this shift
     public int[][] WorkerPreassign { get; set; } // Determine if a worker is forced to do this stage
@@ -112,39 +111,10 @@ public class Data
             LineFunctionRequirement[ln] = tmp;
         }
 
-        GetSuitableEquipmentForLine();
     }
 
     public override string ToString()
     {
         return JsonSerializer.Serialize(this, new JsonSerializerOptions { WriteIndented = true });
-    }
-
-    private void GetSuitableEquipmentForLine()
-    {
-        EquipmentLineSuitable = new int[NumOfLines][];
-        for (int ln = 0; ln < NumOfLines; ln++)
-        {
-            var tmp = new int[NumOfEquipments];
-            for (int eq = 0; eq < NumOfEquipments; eq++)
-            {
-                var flag = true;
-                for (int fu = 0; fu < NumOfFunctions; fu++)
-                {
-                    if (EquipmentFunction[eq][fu] - LineFunctionRequirement[ln][fu] < 0)
-                    {
-                        flag = false;
-                    }
-                }
-                if (flag)
-                {
-                    tmp[eq] = 1;
-                }
-            }
-
-            EquipmentLineSuitable[ln] = tmp;
-        }
-        
-        
     }
 }
