@@ -6,12 +6,12 @@ namespace ManPower;
 public class ExcelDataContext
 {
     // creating an object of ExcelDataContext
-    private static ExcelDataContext _instance = new ExcelDataContext();
+    private static ExcelDataContext? _instance;
     // no instantiated available
     private ExcelDataContext()
     {
         System.Text.Encoding.RegisterProvider(System.Text.CodePagesEncodingProvider.Instance);
-        FileStream stream = File.Open(@"C:\Users\Trung\Documents\GitHub\dmo_ortools\DensoHack\ManPower\InputSample.xlsx", FileMode.Open, FileAccess.Read);
+        FileStream stream = File.Open(@"InputSample.xlsx", FileMode.Open, FileAccess.Read);
         IExcelDataReader excelReader = ExcelReaderFactory.CreateOpenXmlReader(stream);
 
         DataSet result = excelReader.AsDataSet(new ExcelDataSetConfiguration()
@@ -27,7 +27,7 @@ public class ExcelDataContext
     // accessing to ExcelDataContext singleton
     public static ExcelDataContext GetInstance()
     {
-        return _instance;
+        return _instance ??= new ExcelDataContext();
     }
 
     // the dataset of Excel

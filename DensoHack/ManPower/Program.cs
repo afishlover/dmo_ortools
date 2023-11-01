@@ -5,7 +5,7 @@ using ManPower;
 
 Data d = new Data();
 d.Populate();
-
+Console.WriteLine(d.ToString());
 Problem p = new Problem(d);
 p.Setup();
 p.VariableDefinition();

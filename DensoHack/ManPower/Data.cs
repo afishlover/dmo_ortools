@@ -16,15 +16,20 @@ public class Data
 
     public int[][] LineStages { get; set; } // Determine if a line has this stage
     public int[][] WorkerStageAllowance { get; set; } // Determine if a worker can do this stage
+    public int[][] WorkerShifts { get; set; } // Determine if a worker can work at this shift
+    public int[][] WorkerPreassigns { get; set; } // Determine if a worker is forced to do this stage
 
     public int[][] StageFunctions { get; set; } // Determine what functions a stage need
 
     private readonly DataTable _input = ExcelDataContext.GetInstance().Sheets["InputData"];
     private readonly DataTable _lineStage = ExcelDataContext.GetInstance().Sheets["LineStage"];
     private readonly DataTable _workerStageAllowance = ExcelDataContext.GetInstance().Sheets["WorkerStageAllowance"];
+    private readonly DataTable _workerShift = ExcelDataContext.GetInstance().Sheets["WorkerShift"];
+    private readonly DataTable _workerPreassigned = ExcelDataContext.GetInstance().Sheets["WorkerPreassigned"];
     
     public void Populate()
     {
+        #region Numeric
         NumOfDays = Convert.ToInt32(_input.Rows[0][1]);
         NumOfShifts = Convert.ToInt32(_input.Rows[1][1]);
         NumOfLines = Convert.ToInt32(_input.Rows[2][1]);
@@ -32,29 +37,54 @@ public class Data
         NumOfWorkers = Convert.ToInt32(_input.Rows[4][1]);
         NumOfEquipments = Convert.ToInt32(_input.Rows[5][1]);
         NumOfFunctions = Convert.ToInt32(_input.Rows[6][1]);
+        #endregion
 
         LineStages = new int[NumOfLines][];
-        for (int i = 0; i < NumOfLines; i++)
+        for (int ln = 0; ln < NumOfLines; ln++)
         {
             var tmp = new int[NumOfStages];
-            for (int j = 0; j < NumOfStages; j++)
+            for (int st = 0; st < NumOfStages; st++)
             {
-                tmp[j] = Convert.ToInt32(_lineStage.Rows[i + 1][j + 1]);
+                tmp[st] = Convert.ToInt32(_lineStage.Rows[ln + 1][st + 1]);
             }
 
-            LineStages[i] = tmp;
+            LineStages[ln] = tmp;
         }
 
         WorkerStageAllowance = new int[NumOfStages][];
-        for (int i = 0; i < NumOfStages; i++)
+        for (int st = 0; st < NumOfStages; st++)
         {
             var tmp = new int[NumOfWorkers];
-            for (int j = 0; j < NumOfWorkers; j++)
+            for (int w = 0; w < NumOfWorkers; w++)
             {
-                tmp[j] = Convert.ToInt32(_workerStageAllowance.Rows[i + 1][j + 1]);
+                tmp[w] = Convert.ToInt32(_workerStageAllowance.Rows[st + 1][w + 1]);
             }
 
-            WorkerStageAllowance[i] = tmp;
+            WorkerStageAllowance[st] = tmp;
+        }
+
+        WorkerShifts = new int[NumOfWorkers][];
+        for (int w = 0; w < NumOfWorkers; w++)
+        {
+            var tmp = new int[NumOfShifts];
+            for (int sh = 0; sh < NumOfShifts; sh++)
+            {
+                tmp[sh] = Convert.ToInt32(_workerShift.Rows[w + 1][sh + 1]);
+            }
+
+            WorkerShifts[w] = tmp;
+        }
+
+        WorkerPreassigns = new int[NumOfStages][];
+        for (int st = 0; st < NumOfStages; st++)
+        {
+            var tmp = new int[NumOfWorkers];
+            for (int w = 0; w < NumOfWorkers; w++)
+            {
+                tmp[w] = Convert.ToInt32(_workerPreassigned.Rows[st + 1][w + 1]);
+            }
+
+            WorkerPreassigns[st] = tmp;
         }
     }
 
