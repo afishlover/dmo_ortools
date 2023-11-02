@@ -255,13 +255,14 @@ public class Problem
             }
         }
 
-        // 7. Productivity of every line must greater equal than the minimum requirement
+        // 7. Productivity of every line must greater equal than the minimum requirement for every day (each 3 shift)
+        // Consider treat it as an objective -> minimize the gaps between the must and the wanted
     }
 
     public void ObjectiveDefinition()
     {
         // 1. Minimize the productivity gaps between members in same line/shift
-        if (_data.Weights[0] > 0)
+        if (_data.Activate[0] > 0)
         {
             for (int sh = 0; sh < _data.NumOfShifts; sh++)
             {
@@ -279,11 +280,13 @@ public class Problem
                                     {
                                         if (_data.WorkerStageAllowance[st][ow] > 0 && _data.WorkerShift[ow][sh] > 0)
                                         {
-                                            var tmp = _cpModel.NewIntVar(0, 100, $"tmp[{sh}|{ln}|{st}|{w}|{ow}]");
+                                            var tmp = _cpModel.NewIntVar(-100, 100, $"tmp[{sh}|{ln}|{st}|{w}|{ow}]");
+                                            var abTmp = _cpModel.NewIntVar(0, 100, $"abTmp[{sh}|{ln}|{st}|{w}|{ow}]");
                                             _cpModel.Add(tmp == _data.WorkerStageProductivityScore[st][w] -
                                                 _data.WorkerStageProductivityScore[st][ow]).OnlyEnforceIf(
                                                 new ILiteral[]
                                                     { _assignWorker[(sh, st, w)], _assignWorker[(sh, st, ow)] });
+                                            _cpModel.AddAbsEquality(abTmp, tmp);
                                             _totalGaps.Add(tmp);
                                         }
                                     }
@@ -296,7 +299,7 @@ public class Problem
         }
 
         // 2. Minimize the chance of team shuffle
-        if (_data.Weights[1] > 0)
+        if (_data.Activate[1] > 0)
         {
             for (int w = 0; w < _data.NumOfWorkers; w++)
             {
@@ -317,11 +320,92 @@ public class Problem
         }
 
         // 3. Maximize the productivity of a line
+        if (_data.Activate[2] > 0)
+        {
+            for (int ln = 0; ln < _data.NumOfLines; ln++)
+            {
+                var dailyProductivity = new List<LinearExpr>();
+                for (int st = 0; st < _data.NumOfStages; st++)
+                {
+                    int sh = 0;
+                    while (sh < _data.NumOfShifts)
+                    {
+                        if (sh + 2 < _data.NumOfShifts)
+                        {
+                            for (int temp = sh; temp <= sh + 2; temp++)
+                            {
+                                var literals = new List<ILiteral>();
+
+                                for (int w = 0; w < _data.NumOfWorkers; w++)
+                                {
+                                    if (_data.WorkerStageAllowance[st][w] > 0)
+                                    {
+                                        if (_data.WorkerShift[w][sh] > 0)
+                                        {
+                                            literals.Add(_assignWorker[(sh, st, w)]);
+                                        }
+                                    }
+                                }
+
+                                _cpModel.AddExactlyOne(literals);
+                            }
+                        }
+                        else if (sh + 1 < _data.NumOfShifts)
+                        {
+                            for (int temp = sh; temp <= sh + 1; temp++)
+                            {
+                                var literals = new List<ILiteral>();
+
+                                for (int w = 0; w < _data.NumOfWorkers; w++)
+                                {
+                                    if (_data.WorkerStageAllowance[st][w] > 0)
+                                    {
+                                        if (_data.WorkerShift[w][sh] > 0)
+                                        {
+                                            literals.Add(_assignWorker[(sh, st, w)]);
+                                        }
+                                    }
+                                }
+
+                                _cpModel.AddExactlyOne(literals);
+                            }
+                        }
+                        else
+                        {
+                            for (int temp = sh; temp <= sh + 2; temp++)
+                            {
+                                var literals = new List<ILiteral>();
+
+                                for (int w = 0; w < _data.NumOfWorkers; w++)
+                                {
+                                    if (_data.WorkerStageAllowance[st][w] > 0)
+                                    {
+                                        if (_data.WorkerShift[w][sh] > 0)
+                                        {
+                                            literals.Add(_assignWorker[(sh, st, w)]);
+                                        }
+                                    }
+                                }
+
+                                _cpModel.AddExactlyOne(literals);
+                            }
+                        }
+
+                        sh += 3;
+                    }
+                }
+            }
+        }
 
         // 4. Minimize the money used to hire worker
+        if (_data.Activate[3] > 0)
+        {
+        }
 
         // 5. Maximize the chance of being assigned for new worker
-
+        if (_data.Activate[4] > 0)
+        {
+        }
 
         // Casting LinearExpr
         var totalDiversity = _cpModel.NewIntVar(0, int.MaxValue, "TotalDiversity");
@@ -336,9 +420,14 @@ public class Problem
 
     public void GetJSONResult()
     {
-        var result = new
+        var result = new ResultModel
         {
-            NumOfLines = 0
+            NumOfShifts = _data.NumOfShifts,
+            NumOfLines = _data.NumOfLines,
+            NumOfStages = _data.NumOfStages,
+            NumOfWorkers = _data.NumOfWorkers,
+            NumOfEquipments = _data.NumOfEquipments,
+            NumOfFunctions = _data.NumOfFunctions
         };
     }
 

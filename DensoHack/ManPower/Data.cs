@@ -6,7 +6,7 @@ namespace ManPower;
 
 public sealed class Data
 {
-    public int[] Weights = new[] { 10, -20, 10, 10, 5 };
+    public int[] Activate = new[] { 10, -20, 10, 10, 5 };
     public int NumOfLines { get; set; }
     public int NumOfStages { get; set; }
     public int NumOfWorkers { get; set; }
@@ -14,7 +14,7 @@ public sealed class Data
     public int NumOfFunctions { get; set; }
     public int NumOfShifts { get; set; }
 
-    public int[][] LineShift { get; set; } // Determine if a line work in this shift
+    public int[][] LineShift { get; set; } // Determine if a line is active in this shift
     public int[][] LineStage { get; set; } // Determine if a line has this stage
     public int[][] WorkerStageAllowance { get; set; } // Determine if a worker can do this stage
     public int[][] WorkerLineAllowance { get; set; } // Determine if a worker can do this line
@@ -42,6 +42,7 @@ public sealed class Data
     private readonly DataTable _workerShift = ExcelDataContext.GetInstance().Sheets["WorkerShift"]!;
     private readonly DataTable _workerPreassigned = ExcelDataContext.GetInstance().Sheets["WorkerPreassigned"]!;
     private readonly DataTable _equipmentFunction = ExcelDataContext.GetInstance().Sheets["EquipmentFunction"]!;
+    private readonly DataTable _lineShift = ExcelDataContext.GetInstance().Sheets["LineShift"]!;
 
     private readonly DataTable _equipmentProductivityScore =
         ExcelDataContext.GetInstance().Sheets["EquipmentProductivityScore"]!;
@@ -71,7 +72,7 @@ public sealed class Data
 
             LineStage[ln] = tmp;
         }
-        
+
         WorkerStageAllowance = new int[NumOfStages][];
         for (int st = 0; st < NumOfStages; st++)
         {
@@ -140,6 +141,7 @@ public sealed class Data
             {
                 tmp[w] = Convert.ToInt32(_workerStageExperience.Rows[st + 1][w + 1]);
             }
+
             WorkerStageExperience[st] = tmp;
         }
 
@@ -159,10 +161,27 @@ public sealed class Data
             WorkerAge[w] = Convert.ToInt32(_workerProfile.Rows[w + 1][1]);
         }
 
+        LineShift = new int[NumOfLines][];
+        for (int ln = 0; ln < NumOfLines; ln++)
+        {
+            var tmp = new int[NumOfShifts];
+            for (int sh = 0; sh < NumOfShifts; sh++)
+            {
+                tmp[sh] = Convert.ToInt32(Convert.ToInt32(_lineShift.Rows[ln + 1][sh + 1]));
+            }
+
+            LineShift[ln] = tmp;
+        }
+
         CalculateProductivity();
         GetWorkerLineAllowance();
     }
 
+    private void GetStageShift()
+    {
+        
+    }
+    
     private void CalculateProductivity()
     {
         WorkerStageProductivityScore = new int[NumOfStages][];
