@@ -1,0 +1,36 @@
+[
+  {
+    "WorkerId": "c86ab08b-4016-41a4-971e-96ff692c8cff",
+    "WorkerName": "Trung",
+    "WorkerAge": 23,
+    "WorkerSalary": 5000,
+    "WorkerStages": [
+      {
+        "StageId": 1,
+        "StageName": "Rửa linh kiện",
+        "StageScore": 4
+      }
+    ]
+  },
+  {
+    "WorkerId": "4b7e11ab-5b48-4c7a-939e-cc5075a8a46c",
+    "WorkerName": "Bui",
+    "WorkerAge": 23,
+    "WorkerSalary": 5000,
+    "WorkerStages": []
+  },
+  {
+    "WorkerId": "fe6632d9-4a1a-4285-9aea-5b6051a94eb1",
+    "WorkerName": "duc",
+    "WorkerAge": 0,
+    "WorkerSalary": 3000,
+    "WorkerStages": []
+  },
+  {
+    "WorkerId": "1d01ee2d-d6b3-4804-8bf9-a4b3e13f726e",
+    "WorkerName": "trung bui duc",
+    "WorkerAge": 21,
+    "WorkerSalary": 10000,
+    "WorkerStages": []
+  }
+]

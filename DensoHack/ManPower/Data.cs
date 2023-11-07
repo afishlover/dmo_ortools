@@ -6,51 +6,42 @@ namespace ManPower;
 
 public sealed class Data
 {
-    public int[] Activate = new[] { 10, -20, 10, 10, 5 };
+    public int[] Activate = new[] { 0, 0, 0, 0, 0 };
+    public int[] Weights = new[] { 10, -20, 10, 10, 5 };
+    public int[] Levels = { -2, -1, 0, 1, 2 };
+    public int[] Scores = { 0, 1, 2, 3, 4, 5 };
     public int NumOfLines { get; set; }
     public int NumOfStages { get; set; }
     public int NumOfWorkers { get; set; }
-    public int NumOfEquipments { get; set; }
-    public int NumOfFunctions { get; set; }
     public int NumOfShifts { get; set; }
 
     public int[][] LineShift { get; set; } // Determine if a line is active in this shift
     public int[][] LineStage { get; set; } // Determine if a line has this stage
+    public int[][] StageShift { get; set; } // Determine if a stage is active in this shift
+    public int[] LineMinProductivity { get; set; }  // Determine a line required minimum productivity
     public int[][] WorkerStageAllowance { get; set; } // Determine if a worker can do this stage
-    public int[][] WorkerLineAllowance { get; set; } // Determine if a worker can do this line
+    public int[][] WorkerStageExperience { get; set; } // Determine worker stage experience
     public int[][] WorkerShift { get; set; } // Determine if a worker can work at this shift
     public int[][] WorkerPreassign { get; set; } // Determine if a worker is forced to do this stage
-    public int[][] WorkerStageExperience { get; set; } // Determine worker stage experience
     public int[] WorkerAge { get; set; } // Determine worker age
     public int[] WorkerHealth { get; set; } // Determine worker health
     public int[] WorkerSalary { get; set; } // Determine worker shift salary
-    public int[] EquipmentProductivityScore { get; set; } // Determine productivity score of an equipment
 
     public int[][]
         WorkerStageProductivityScore { get; set; } // Determine worker productivity with regard to every stage
 
-    public int[][] LineFunctionRequirement { get; set; } // Determine what functions a stage need
-    public int[][] EquipmentFunction { get; set; } // Determine what functions an equipment has
-
-    #region DataTable
 
     private readonly DataTable _input = ExcelDataContext.GetInstance().Sheets["InputData"]!;
     private readonly DataTable _lineStage = ExcelDataContext.GetInstance().Sheets["LineStage"]!;
-    private readonly DataTable _workerStageAllowance = ExcelDataContext.GetInstance().Sheets["WorkerStageAllowance"]!;
-    private readonly DataTable _workerProfile = ExcelDataContext.GetInstance().Sheets["WorkerProfile"]!;
+    private readonly DataTable _lineShift = ExcelDataContext.GetInstance().Sheets["LineShift"]!;
+    private readonly DataTable _lineMinProductivity = ExcelDataContext.GetInstance().Sheets["LineMinProductivity"]!;
+    private readonly DataTable _stageEligibleScore = ExcelDataContext.GetInstance().Sheets["StageEligibleScore"]!;
+    private readonly DataTable _workerStageScore = ExcelDataContext.GetInstance().Sheets["WorkerStageScore"]!;
     private readonly DataTable _workerStageExperience = ExcelDataContext.GetInstance().Sheets["WorkerStageExperience"]!;
     private readonly DataTable _workerShift = ExcelDataContext.GetInstance().Sheets["WorkerShift"]!;
+    private readonly DataTable _workerProfile = ExcelDataContext.GetInstance().Sheets["WorkerProfile"]!;
     private readonly DataTable _workerPreassigned = ExcelDataContext.GetInstance().Sheets["WorkerPreassigned"]!;
-    private readonly DataTable _equipmentFunction = ExcelDataContext.GetInstance().Sheets["EquipmentFunction"]!;
-    private readonly DataTable _lineShift = ExcelDataContext.GetInstance().Sheets["LineShift"]!;
 
-    private readonly DataTable _equipmentProductivityScore =
-        ExcelDataContext.GetInstance().Sheets["EquipmentProductivityScore"]!;
-
-    private readonly DataTable _lineFunctionRequirement =
-        ExcelDataContext.GetInstance().Sheets["LineFunctionRequirement"]!;
-
-    #endregion
 
     public void Populate()
     {
@@ -58,8 +49,6 @@ public sealed class Data
         NumOfLines = Convert.ToInt32(_input.Rows[1][1]);
         NumOfStages = Convert.ToInt32(_input.Rows[2][1]);
         NumOfWorkers = Convert.ToInt32(_input.Rows[3][1]);
-        NumOfEquipments = Convert.ToInt32(_input.Rows[4][1]);
-        NumOfFunctions = Convert.ToInt32(_input.Rows[5][1]);
 
         LineStage = new int[NumOfLines][];
         for (int ln = 0; ln < NumOfLines; ln++)
@@ -72,14 +61,22 @@ public sealed class Data
 
             LineStage[ln] = tmp;
         }
-
+        
         WorkerStageAllowance = new int[NumOfStages][];
         for (int st = 0; st < NumOfStages; st++)
         {
             var tmp = new int[NumOfWorkers];
             for (int w = 0; w < NumOfWorkers; w++)
             {
-                tmp[w] = Convert.ToInt32(_workerStageAllowance.Rows[st + 1][w + 1]);
+                if (Convert.ToInt32(_workerStageScore.Rows[st + 1][w + 1]) >=
+                    Convert.ToInt32(_stageEligibleScore.Rows[st + 1][1]))
+                {
+                    tmp[w] = 1;
+                }
+                else
+                {
+                    tmp[w] = 0;
+                }
             }
 
             WorkerStageAllowance[st] = tmp;
@@ -108,31 +105,7 @@ public sealed class Data
 
             WorkerPreassign[st] = tmp;
         }
-
-        EquipmentFunction = new int[NumOfEquipments][];
-        for (int eq = 0; eq < NumOfEquipments; eq++)
-        {
-            var tmp = new int[NumOfFunctions];
-            for (int fu = 0; fu < NumOfFunctions; fu++)
-            {
-                tmp[fu] = Convert.ToInt32(_equipmentFunction.Rows[eq + 1][fu + 1]);
-            }
-
-            EquipmentFunction[eq] = tmp;
-        }
-
-        LineFunctionRequirement = new int[NumOfLines][];
-        for (int ln = 0; ln < NumOfLines; ln++)
-        {
-            var tmp = new int[NumOfFunctions];
-            for (int fu = 0; fu < NumOfFunctions; fu++)
-            {
-                tmp[fu] = Convert.ToInt32(_lineFunctionRequirement.Rows[ln + 1][fu + 1]);
-            }
-
-            LineFunctionRequirement[ln] = tmp;
-        }
-
+        
         WorkerStageExperience = new int[NumOfStages][];
         for (int st = 0; st < NumOfStages; st++)
         {
@@ -143,12 +116,6 @@ public sealed class Data
             }
 
             WorkerStageExperience[st] = tmp;
-        }
-
-        EquipmentProductivityScore = new int[NumOfEquipments];
-        for (int eq = 0; eq < NumOfEquipments; eq++)
-        {
-            EquipmentProductivityScore[eq] = Convert.ToInt32(_equipmentProductivityScore.Rows[eq + 1][1]);
         }
 
         WorkerSalary = new int[NumOfWorkers];
@@ -173,15 +140,32 @@ public sealed class Data
             LineShift[ln] = tmp;
         }
 
+        StageShift = new int[NumOfShifts][];
+        for (int ln = 0; ln < NumOfLines; ln++)
+        {
+            for (int sh = 0; sh < NumOfShifts; sh++)
+            {
+                var tmp = new int[NumOfStages];
+                if (LineShift[ln][sh] < 0) continue;
+                for (int st = 0; st < NumOfStages; st++)
+                {
+                    if (LineStage[ln][st] < 0) continue;
+                    tmp[st] = 1;
+                }
+
+                StageShift[sh] = tmp;
+            }
+        }
+
+        LineMinProductivity = new int[NumOfLines];
+        for (int ln = 0; ln < NumOfLines; ln++)
+        {
+            // LineMinProductivity[ln] = Convert.ToInt32(_lineMinProductivity.Rows[ln + 1][1]);
+        }
+
         CalculateProductivity();
-        GetWorkerLineAllowance();
     }
 
-    private void GetStageShift()
-    {
-        
-    }
-    
     private void CalculateProductivity()
     {
         WorkerStageProductivityScore = new int[NumOfStages][];
@@ -195,36 +179,6 @@ public sealed class Data
             }
 
             WorkerStageProductivityScore[st] = tmp;
-        }
-    }
-
-    private void GetWorkerLineAllowance()
-    {
-        WorkerLineAllowance = new int[NumOfLines][];
-        for (int ln = 0; ln < NumOfLines; ln++)
-        {
-            var tmp = new int[NumOfWorkers];
-            for (int w = 0; w < NumOfWorkers; w++)
-            {
-                var flag = true;
-                for (int st = 0; st < NumOfStages; st++)
-                {
-                    if (LineStage[ln][st] > 0)
-                    {
-                        if (WorkerStageAllowance[st][w] < 0)
-                        {
-                            flag = false;
-                        }
-                    }
-                }
-
-                if (flag)
-                {
-                    tmp[w] = 1;
-                }
-            }
-
-            WorkerLineAllowance[ln] = tmp;
         }
     }
 

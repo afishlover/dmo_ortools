@@ -12,7 +12,6 @@ public class Problem
 
     // Unknowns
     private readonly Dictionary<(int, int, int), BoolVar> _assignWorker; // assign a specific worker to a stage
-    private readonly Dictionary<(int, int), BoolVar> _assignEquipment; // assign a specific equipment to a line
 
     // Objectives
     private List<LinearExpr> _totalDiversity;
@@ -26,7 +25,6 @@ public class Problem
     public Problem(Data data)
     {
         _assignWorker = new();
-        _assignEquipment = new();
         _totalDiversity = new List<LinearExpr>();
         _totalGaps = new List<LinearExpr>();
         _cpSolver = new CpSolver();
@@ -54,6 +52,7 @@ public class Problem
         {
             for (int st = 0; st < _data.NumOfStages; st++)
             {
+                if (_data.StageShift[sh][st] < 0) continue;
                 for (int w = 0; w < _data.NumOfWorkers; w++)
                 {
                     if (_data.WorkerStageAllowance[st][w] > 0 && _data.WorkerShift[w][sh] > 0)
@@ -61,16 +60,6 @@ public class Problem
                         _assignWorker[(sh, st, w)] = _cpModel.NewBoolVar($"A[{sh}|{st}|{w}]");
                     }
                 }
-            }
-        }
-
-        // 2. Determine in a line/shift/ which equipment stay
-
-        for (int ln = 0; ln < _data.NumOfLines; ln++)
-        {
-            for (int eq = 0; eq < _data.NumOfEquipments; eq++)
-            {
-                _assignEquipment[(ln, eq)] = _cpModel.NewBoolVar($"E[{ln}|{eq}]");
             }
         }
     }
@@ -106,7 +95,8 @@ public class Problem
                     for (int ost = st + 1; ost < _data.NumOfStages; ost++)
                     {
                         if (_data.WorkerStageAllowance[st][w] > 0 && _data.WorkerStageAllowance[ost][w] > 0 &&
-                            _data.WorkerShift[w][sh] > 0)
+                            _data.WorkerShift[w][sh] > 0 && _data.StageShift[sh][st] > 0 &&
+                            _data.StageShift[sh][ost] > 0)
                         {
                             _cpModel.AddAtMostOne(new[] { _assignWorker[(sh, st, w)], _assignWorker[(sh, ost, w)] });
                         }
@@ -125,6 +115,7 @@ public class Problem
                 {
                     for (int temp = sh; temp <= sh + 2; temp++)
                     {
+                        if (_data.StageShift[sh][st] < 0) continue;
                         var literals = new List<ILiteral>();
 
                         for (int w = 0; w < _data.NumOfWorkers; w++)
@@ -145,6 +136,7 @@ public class Problem
                 {
                     for (int temp = sh; temp <= sh + 1; temp++)
                     {
+                        if (_data.StageShift[sh][st] < 0) continue;
                         var literals = new List<ILiteral>();
 
                         for (int w = 0; w < _data.NumOfWorkers; w++)
@@ -165,6 +157,7 @@ public class Problem
                 {
                     for (int temp = sh; temp <= sh + 2; temp++)
                     {
+                        if (_data.StageShift[sh][st] < 0) continue;
                         var literals = new List<ILiteral>();
 
                         for (int w = 0; w < _data.NumOfWorkers; w++)
@@ -191,6 +184,7 @@ public class Problem
         {
             for (int st = 0; st < _data.NumOfStages; st++)
             {
+                if (_data.StageShift[sh][st] < 0) continue;
                 for (int w = 0; w < _data.NumOfWorkers; w++)
                 {
                     if (_data.WorkerStageAllowance[st][w] > 0 && _data.WorkerShift[w][sh] > 0)
@@ -219,44 +213,80 @@ public class Problem
             }
         }
 
-        // 5. Equipment can only stay at one line
-        for (int ln = 0; ln < _data.NumOfLines - 1; ln++)
-        {
-            for (int oln = ln + 1; oln < _data.NumOfLines; oln++)
-            {
-                for (int eq = 0; eq < _data.NumOfEquipments; eq++)
-                {
-                    _cpModel.AddAtMostOne(new[] { _assignEquipment[(ln, eq)], _assignEquipment[(oln, eq)] });
-                }
-            }
-        }
-
-        // 6. Total equipment assigned to a line must fulfill its requirements
-        for (int sh = 0; sh < _data.NumOfShifts; sh++)
-        {
-            for (int ln = 0; ln < _data.NumOfLines; ln++)
-            {
-                for (int fu = 0; fu < _data.NumOfFunctions; fu++)
-                {
-                    var literals = new List<BoolVar>();
-                    var coefficients = new List<int>();
-                    for (int eq = 0; eq < _data.NumOfEquipments; eq++)
-                    {
-                        literals.Add(_assignEquipment[(ln, eq)]);
-                        coefficients.Add(_data.EquipmentFunction[eq][fu]);
-                    }
-
-                    if (_data.LineFunctionRequirement[ln][fu] > 0)
-                    {
-                        _cpModel.Add(
-                            LinearExpr.WeightedSum(literals, coefficients) >= _data.LineFunctionRequirement[ln][fu]);
-                    }
-                }
-            }
-        }
-
-        // 7. Productivity of every line must greater equal than the minimum requirement for every day (each 3 shift)
+        // 5. Productivity of every line must greater equal than the minimum requirement for every day (each 3 shift)
         // Consider treat it as an objective -> minimize the gaps between the must and the wanted
+        for (int st = 0; st < _data.NumOfStages; st++)
+        {
+            int sh = 0;
+            while (sh < _data.NumOfShifts)
+            {
+                if (sh + 2 < _data.NumOfShifts)
+                {
+                    for (int temp = sh; temp <= sh + 2; temp++)
+                    {
+                        if (_data.StageShift[sh][st] < 0) continue;
+                        var literals = new List<LinearExpr>();
+
+                        for (int w = 0; w < _data.NumOfWorkers; w++)
+                        {
+                            if (_data.WorkerStageAllowance[st][w] > 0)
+                            {
+                                if (_data.WorkerShift[w][sh] > 0)
+                                {
+                                    literals.Add(_assignWorker[(sh, st, w)] * _data.WorkerStageProductivityScore[st][w]);
+                                }
+                            }
+                        }
+
+                        // _cpModel.Add(LinearExpr.Sum(literals) >= _data.LineMinProductivity[ln]);
+                    }
+                }
+                else if (sh + 1 < _data.NumOfShifts)
+                {
+                    for (int temp = sh; temp <= sh + 1; temp++)
+                    {
+                        if (_data.StageShift[sh][st] < 0) continue;
+                        var literals = new LinearExpr();
+
+                        for (int w = 0; w < _data.NumOfWorkers; w++)
+                        {
+                            if (_data.WorkerStageAllowance[st][w] > 0)
+                            {
+                                if (_data.WorkerShift[w][sh] > 0)
+                                {
+                                    literals += _assignWorker[(sh, st, w)] * _data.WorkerStageProductivityScore[st][w];
+                                }
+                            }
+                        }
+
+                        // _totalProductivity.Add(literals);
+                    }
+                }
+                else
+                {
+                    for (int temp = sh; temp <= sh + 2; temp++)
+                    {
+                        if (_data.StageShift[sh][st] < 0) continue;
+                        var literals = new LinearExpr();
+
+                        for (int w = 0; w < _data.NumOfWorkers; w++)
+                        {
+                            if (_data.WorkerStageAllowance[st][w] > 0)
+                            {
+                                if (_data.WorkerShift[w][sh] > 0)
+                                {
+                                    literals += _assignWorker[(sh, st, w)] * _data.WorkerStageProductivityScore[st][w];
+                                }
+                            }
+                        }
+
+                        // _totalProductivity.Add(literals);
+                    }
+                }
+
+                sh += 3;
+            }
+        }
     }
 
     public void ObjectiveDefinition()
@@ -270,6 +300,7 @@ public class Problem
                 {
                     for (int st = 0; st < _data.NumOfStages; st++)
                     {
+                        if (_data.StageShift[sh][st] < 0) continue;
                         if (_data.LineStage[ln][st] > 0)
                         {
                             for (int w = 0; w < _data.NumOfWorkers - 1; w++)
@@ -308,6 +339,7 @@ public class Problem
                 {
                     for (int st = 0; st < _data.NumOfStages; st++)
                     {
+                        if (_data.StageShift[sh][st] < 0) continue;
                         if (_data.WorkerStageAllowance[st][w] > 0 && _data.WorkerShift[w][sh] > 0)
                         {
                             literals.Add(_assignWorker[(sh, st, w)]);
@@ -414,21 +446,11 @@ public class Problem
         var totalGaps = _cpModel.NewIntVar(0, int.MaxValue, "TotalGaps");
         _cpModel.Add(LinearExpr.Sum(_totalGaps) == totalGaps);
 
-        // Weighted Sum
-        _cpModel.Minimize(totalGaps);
-    }
+        // var totalProductivity = _cpModel.NewIntVar(0, int.MaxValue, "TotalProductivity");
+        // _cpModel.Add(LinearExpr.Sum(_totalProductivity) == totalProductivity);
 
-    public void GetJSONResult()
-    {
-        var result = new ResultModel
-        {
-            NumOfShifts = _data.NumOfShifts,
-            NumOfLines = _data.NumOfLines,
-            NumOfStages = _data.NumOfStages,
-            NumOfWorkers = _data.NumOfWorkers,
-            NumOfEquipments = _data.NumOfEquipments,
-            NumOfFunctions = _data.NumOfFunctions
-        };
+        // Weighted Sum
+        _cpModel.Minimize(totalDiversity);
     }
 
     public void Solve()
@@ -436,29 +458,17 @@ public class Problem
         var status = _cpSolver.Solve(_cpModel);
         if (status is CpSolverStatus.Feasible or CpSolverStatus.Optimal)
         {
-            // for (int sh = 0; sh < _data.NumOfShifts; sh++)
-            // {
-            //     for (int st = 0; st < _data.NumOfStages; st++)
-            //     {
-            //         for (int w = 0; w < _data.NumOfWorkers; w++)
-            //         {
-            //             if (_data.WorkerStageAllowance[st][w] > 0 && _data.WorkerShift[w][sh] > 0 &&
-            //                 _cpSolver.Value(_assignWorker[(sh, st, w)]) == 1L)
-            //             {
-            //                 Console.WriteLine($"Worker {w} is assigned to stage {st} at shift {sh}");
-            //             }
-            //         }
-            //     }
-            // }
-
-
-            for (int ln = 0; ln < _data.NumOfLines; ln++)
+            for (int sh = 0; sh < _data.NumOfShifts; sh++)
             {
-                for (int eq = 0; eq < _data.NumOfEquipments; eq++)
+                for (int st = 0; st < _data.NumOfStages; st++)
                 {
-                    if (_cpSolver.Value(_assignEquipment[(ln, eq)]) == 1L)
+                    for (int w = 0; w < _data.NumOfWorkers; w++)
                     {
-                        Console.WriteLine($"Equipment {eq} is assigned to line {ln}");
+                        if (_data.WorkerStageAllowance[st][w] > 0 && _data.WorkerShift[w][sh] > 0 &&
+                            _cpSolver.Value(_assignWorker[(sh, st, w)]) == 1L)
+                        {
+                            Console.WriteLine($"Worker {w} is assigned to stage {st} at shift {sh}");
+                        }
                     }
                 }
             }
